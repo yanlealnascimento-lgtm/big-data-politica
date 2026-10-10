@@ -1,0 +1,12 @@
+.env
+secrets.toml
+.streamlit/secrets.toml
+terraform.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
+crash.log
+dados/
+saida_BA.csv
+__pycache__/
+*.pyc
