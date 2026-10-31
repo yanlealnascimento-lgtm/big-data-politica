@@ -1,10 +1,6 @@
 # Representatividade Política e Financiamento Eleitoral
 
-Projeto da disciplina Big Data e Analytics (UCSAL) — Marco 2.
-
 Neste projeto, usamos os dados das eleições de 2022 para investigar como a participação política e o financiamento de campanha variam entre os grupos de gênero e cor/raça. O tema se relaciona aos ODS 5, sobre igualdade de gênero, e 18, sobre igualdade étnico-racial.
-
-O Marco 2 ficou concentrado na preparação dos dados: baixar as bases, tratar os arquivos e carregar o resultado em um banco na nuvem, com a infraestrutura definida em Terraform.
 
 ## Dados utilizados
 
