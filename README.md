@@ -8,9 +8,9 @@ Usamos os dados abertos do TSE referentes às eleições de 2022. A escolha de 2
 
 Foram utilizados três arquivos:
 
-- `consulta_cand_2022` — informações sobre os candidatos, como gênero, cor/raça, cargo, partido e situação eleitoral;
-- `receitas_candidatos_2022` — valores arrecadados por cada candidato;
-- `despesas_contratadas_candidatos_2022` — gastos contratados por cada candidato.
+- `consulta_cand_2022`: informações sobre os candidatos, como gênero, cor/raça, cargo, partido e situação eleitoral;
+- `receitas_candidatos_2022`: valores arrecadados por cada candidato;
+- `despesas_contratadas_candidatos_2022`: gastos contratados por cada candidato.
 
 Os arquivos são relacionados pela coluna `SQ_CANDIDATO`, que identifica cada candidatura. Os dados estão em CSV, usam ponto e vírgula como separador e a codificação `latin-1`, necessária para que os caracteres acentuados sejam lidos corretamente.
 
