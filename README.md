@@ -128,10 +128,10 @@ python testa_banco.py
 
 ## Arquivos do projeto
 
-- `etl.py` — faz o tratamento e a agregação dos dados;
-- `load.py` — carrega os dados no banco;
-- `conferir.py` — foi usado para verificar as colunas no início do projeto;
-- `testa_banco.py` — testa a leitura dos dados no banco;
-- `saida_agregado.csv` — contém a base tratada e agregada;
-- `terraform/` — contém os arquivos usados para criar a infraestrutura;
-- `.gitignore` — define quais arquivos não devem ser enviados ao repositório.
+- `etl.py`: faz o tratamento e a agregação dos dados;
+- `load.py`: carrega os dados no banco;
+- `conferir.py`: foi usado para verificar as colunas no início do projeto;
+- `testa_banco.py`: testa a leitura dos dados no banco;
+- `saida_agregado.csv`: contém a base tratada e agregada;
+- `terraform/`: contém os arquivos usados para criar a infraestrutura;
+- `.gitignore`: define quais arquivos não devem ser enviados ao repositório.
