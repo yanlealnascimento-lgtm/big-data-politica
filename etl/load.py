@@ -5,7 +5,8 @@ from sqlalchemy import create_engine, types, text
 from sqlalchemy.engine.url import make_url
 from dotenv import load_dotenv
 
-ARQUIVO = "saida_agregado.csv"
+RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ARQUIVO = os.path.join(RAIZ, "saida_agregado.csv")
 TABELA = "financiamento_representatividade"
 BANCO = "tse_dados"
 
@@ -15,6 +16,7 @@ TIPOS = {
     "ds_cargo": types.String(60),
     "ds_genero": types.String(30),
     "ds_cor_raca": types.String(30),
+    "faixa_etaria": types.String(20),
     "qt_candidaturas": types.Integer(),
     "qt_eleitos": types.Integer(),
     "receita_media": types.Numeric(14, 2),
@@ -27,6 +29,7 @@ TIPOS = {
 
 
 def conecta():
+    load_dotenv(os.path.join(RAIZ, ".env"))
     load_dotenv()
     uri = os.environ.get("DATABASE_URL")
     if not uri:

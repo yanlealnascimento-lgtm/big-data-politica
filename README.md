@@ -1,137 +1,184 @@
 # Representatividade Política e Financiamento Eleitoral
 
-Neste projeto, usamos os dados das eleições de 2022 para investigar como a participação política e o financiamento de campanha variam entre os grupos de gênero e cor/raça. O tema se relaciona aos ODS 5, sobre igualdade de gênero, e 18, sobre igualdade étnico-racial.
+Projeto da disciplina Big Data e Analytics (UCSAL) - Marco 2.
+
+A ideia do projeto é analisar, usando os dados abertos do TSE das eleições de 2022,
+se existe desigualdade de representatividade e de financiamento de campanha quando a
+gente cruza gênero com cor/raça. O tema está ligado aos ODS 5 (igualdade de gênero) e
+ODS 18 (igualdade étnico-racial). Nesta etapa a gente deixou a camada de dados pronta:
+baixou os dados, tratou, modelou e carregou num banco na nuvem provisionado por código.
 
 ## Dados utilizados
 
-Usamos os dados abertos do TSE referentes às eleições de 2022. A escolha de 2022 permite comparar vários cargos de uma mesma eleição geral e cruzar o perfil das candidaturas com os valores de campanha.
+A fonte são os dados abertos do TSE (dadosabertos.tse.jus.br). Escolhemos as eleições
+de 2022 porque é eleição geral, então tem vários cargos (deputado federal e estadual,
+senador, governador, presidente) e o dinheiro de campanha é bem maior, o que faz sentido
+pro nosso tema que fala de financiamento.
 
-Foram utilizados três arquivos:
+Usamos três arquivos, todos de 2022:
 
-- `consulta_cand_2022`: informações sobre os candidatos, como gênero, cor/raça, cargo, partido e situação eleitoral;
-- `receitas_candidatos_2022`: valores arrecadados por cada candidato;
-- `despesas_contratadas_candidatos_2022`: gastos contratados por cada candidato.
+- `consulta_cand_2022` - perfil dos candidatos (gênero, cor/raça, cargo, partido, situação)
+- `receitas_candidatos_2022` - o que cada candidato arrecadou
+- `despesas_contratadas_candidatos_2022` - o que cada candidato gastou
 
-Os arquivos são relacionados pela coluna `SQ_CANDIDATO`, que identifica cada candidatura. Os dados estão em CSV, usam ponto e vírgula como separador e a codificação `latin-1`, necessária para que os caracteres acentuados sejam lidos corretamente.
+Os três se ligam pela coluna `SQ_CANDIDATO`, que é o identificador de cada candidato.
 
-A base de candidatos tem cerca de 29 mil registros e 50 colunas. A base de receitas possui aproximadamente 675 mil lançamentos, enquanto a de despesas passa de 2 milhões. Como os arquivos incluem informações pessoais, como CPF, nome e e-mail, esses campos foram retirados durante o tratamento. Também mantivemos categorias do TSE como “NÃO INFORMADO” e “NÃO DIVULGÁVEL”, pois elas fazem parte dos dados originais.
+Sobre as características da base: os arquivos vêm em CSV com separador ponto e vírgula e
+codificação latin-1 (se abrir como UTF-8 os acentos quebram). A base de candidatos tem
+mais ou menos 29 mil linhas e 50 colunas, a de receitas tem uns 675 mil lançamentos e a
+de despesas passa de 2 milhões. Também tem dados pessoais (CPF, nome, email) que a gente
+precisou tirar por causa da LGPD, e tem umas categorias próprias do TSE como "NÃO INFORMADO"
+e "NÃO DIVULGÁVEL" pra quando a informação não está disponível.
 
-## Tratamento dos dados
+## Tratamento realizado
 
-O tratamento está no arquivo `etl.py` e foi feito em Python com a biblioteca Pandas. Como os arquivos são grandes, não seria prático carregar tudo na memória de uma vez. Além disso, os valores monetários e as datas precisavam ser convertidos, e o banco gratuito tem limite de 1 GB.
+O tratamento está no `etl.py`, feito em Python com Pandas.
 
-O script faz a leitura em blocos e aproveita apenas as colunas usadas na análise. Os dados pessoais são descartados logo na leitura, os valores de dinheiro são convertidos para números decimais, as datas são tratadas e os textos são padronizados. Os valores ausentes são identificados como “NÃO INFORMADO”.
+Os principais problemas que a gente teve que resolver foram: os arquivos são grandes
+demais pra abrir de uma vez, os valores de dinheiro vêm como texto no formato brasileiro
+(tipo "1.234,56"), as datas vêm como texto, os textos estão despadronizados, e tem o
+limite de 1 GB do banco gratuito que não ia caber se jogássemos tudo lá dentro.
 
-O processo também cria uma marcação para indicar se o candidato foi eleito, soma receitas e despesas por candidato e junta essas informações ao perfil de cada um. Por fim, os dados são agrupados por ano, estado, cargo, gênero e cor/raça.
+O que a gente fez:
 
-O resultado é o arquivo `saida_agregado.csv`, com 1.034 linhas e 13 colunas. A agregação reduz bastante o tamanho da base e permite analisar os grupos sem manter os dados pessoais de cada candidato no resultado final.
+- Leu os arquivos em blocos (chunks) pra não estourar a memória
+- Selecionou só as colunas que interessam, umas 10 das 50
+- Tirou os dados pessoais (CPF, nome, email, título de eleitor) logo na leitura
+- Converteu os valores de dinheiro pra número decimal
+- Converteu as datas e tirou a faixa etária
+- Padronizou os textos (tudo maiúsculo, nulos viram "NÃO INFORMADO")
+- Criou uma marcação de eleito ou não a partir da situação final
+- Somou receitas e despesas por candidato e juntou com o perfil
+- No final, agrupou tudo por ano, estado, cargo, gênero e cor/raça
 
-Não usamos amostragem porque ela poderia alterar a representação dos grupos com menos candidaturas, que também são importantes para a análise, como o de mulheres negras. Também juntamos as informações financeiras ao perfil antes de agrupar os dados, para não perder a relação entre cada candidato e os valores que arrecadou e gastou.
+O resultado é o `saida_agregado.csv`, que ficou com 1.034 linhas e 13 colunas.
 
-Além da média, calculamos a mediana das receitas e despesas. Como alguns candidatos recebem ou gastam valores muito altos, a mediana ajuda a entender melhor o valor mais típico de cada grupo.
+Algumas decisões que a gente tomou e por quê:
 
-## Modelagem dos dados
+A agregação por grupo foi a forma de resolver o volume. Em vez de guardar milhões de
+candidatos, guardamos só os grupos (1.034 linhas), o que cabe tranquilo no banco e ainda
+ajuda na LGPD porque não fica dado individual.
 
-No banco, usamos uma única tabela chamada `financiamento_representatividade`, com as 1.034 linhas agregadas. Ela reúne as informações de ano, estado, cargo, gênero e cor/raça, além dos totais de candidaturas, eleitos, receitas, despesas e taxa de eleição.
+Não usamos amostragem porque ela poderia bagunçar a contagem dos grupos menores, que são
+justamente os que a gente quer olhar (mulheres negras, por exemplo).
 
-Como as três bases de origem foram unidas durante o ETL usando `SQ_CANDIDATO`, não foi necessário criar relacionamentos entre várias tabelas no banco. Com os dados já agregados, o painel pode consultar essa tabela diretamente.
+Juntamos o financeiro antes de agregar de propósito. O `SQ_CANDIDATO` só existe na linha
+de cada candidato, então se agrupássemos primeiro a gente perderia a ligação entre o
+perfil e o quanto cada um arrecadou.
 
-Os principais campos da tabela são:
+Guardamos média e mediana das receitas porque campanha tem muita diferença de valor (uns
+poucos arrecadam muito), e aí a mediana mostra melhor o valor do candidato "comum".
 
-| Campo | Tipo | Descrição |
+## Modelagem
+
+A gente usou uma tabela só, a `financiamento_representatividade`, com as 1.034 linhas.
+Ela é desnormalizada, ou seja, as dimensões (ano, estado, cargo, gênero, cor/raça) e os
+números (candidaturas, eleitos, receita, despesa, taxa de eleição) ficam todos juntos na
+mesma tabela. Como as três bases já foram unidas lá no ETL pelo SQ_CANDIDATO, no banco não
+tem relacionamento entre tabelas, o que deixa a consulta mais simples e rápida.
+
+Os campos da tabela:
+
+| Campo | Tipo | O que é |
 |---|---|---|
-| `ano_eleicao` | `SMALLINT` | Ano da eleição (2022) |
-| `sg_uf` | `CHAR(2)` | Estado |
-| `ds_cargo` | `VARCHAR(60)` | Cargo disputado |
-| `ds_genero` | `VARCHAR(30)` | Gênero do candidato |
-| `ds_cor_raca` | `VARCHAR(30)` | Cor/raça declarada |
-| `qt_candidaturas` | `INTEGER` | Quantidade de candidaturas no grupo |
-| `qt_eleitos` | `INTEGER` | Quantidade de candidatos eleitos |
-| `receita_media` | `NUMERIC(14,2)` | Receita média por candidato |
-| `receita_mediana` | `NUMERIC(14,2)` | Mediana das receitas |
-| `receita_soma` | `NUMERIC(16,2)` | Receita total do grupo |
-| `despesa_media` | `NUMERIC(14,2)` | Despesa média por candidato |
-| `despesa_mediana` | `NUMERIC(14,2)` | Mediana das despesas |
-| `taxa_eleicao` | `NUMERIC(6,4)` | Proporção de candidatos eleitos no grupo |
+| ano_eleicao | SMALLINT | ano da eleição (2022) |
+| sg_uf | CHAR(2) | estado |
+| ds_cargo | VARCHAR(60) | cargo |
+| ds_genero | VARCHAR(30) | gênero |
+| ds_cor_raca | VARCHAR(30) | cor/raça |
+| qt_candidaturas | INTEGER | quantas candidaturas no grupo |
+| qt_eleitos | INTEGER | quantos foram eleitos |
+| receita_media | NUMERIC(14,2) | receita média por candidato |
+| receita_mediana | NUMERIC(14,2) | receita mediana |
+| receita_soma | NUMERIC(16,2) | receita total do grupo |
+| despesa_media | NUMERIC(14,2) | despesa média |
+| despesa_mediana | NUMERIC(14,2) | despesa mediana |
+| taxa_eleicao | NUMERIC(6,4) | proporção de eleitos no grupo |
 
-Escolhemos o PostgreSQL porque os dados são organizados em tabelas e as consultas podem ser feitas em SQL. Consideramos o OpenSearch, mas ele não é necessário para este projeto, já que não precisamos de busca textual e a tabela única atende às consultas planejadas.
+Sobre a escolha do banco: usamos PostgreSQL, que é relacional. Os dados são tabulares e as
+consultas são todas em SQL, então faz sentido. A gente até pensou em usar OpenSearch, mas
+não precisa, porque não tem busca de texto no projeto e a tabela única já resolve as
+consultas que a gente quer fazer.
 
 ## Infraestrutura
 
-O banco está hospedado na Aiven, no plano gratuito `free-1-1gb`, com 1 CPU, 1 GB de RAM e 1 GB de armazenamento. O serviço se chama `pg-tse-2022` e o banco utilizado é `tse_dados`.
+O banco está hospedado na Aiven, no plano gratuito (free-1-1gb, com 1 CPU, 1 GB de RAM e
+1 GB de disco). O serviço é o `pg-tse-2022` e dentro dele tem o banco `tse_dados`.
 
-Criamos a infraestrutura usando Terraform, com os arquivos que estão na pasta `terraform/`. Assim, em vez de configurar tudo manualmente pelo site da Aiven, descrevemos a configuração em arquivos e usamos o Terraform para criar os recursos.
+A infraestrutura toda foi criada por código com o Terraform (os arquivos estão na pasta
+`terraform/`). Isso significa que em vez de criar o banco clicando no site da Aiven, a
+gente escreveu o que queria num arquivo e rodou o Terraform pra criar.
 
-As principais tecnologias utilizadas foram Terraform para a infraestrutura, PostgreSQL para armazenar os dados e Python com Pandas para o tratamento e a carga.
+As tecnologias usadas na etapa foram Terraform (infraestrutura), PostgreSQL (banco),
+e Python com Pandas (tratamento e carga).
 
-## Segurança e LGPD
+## Segurança
 
-As credenciais devem ficar fora do repositório. O token da Aiven fica no arquivo `terraform.tfvars`, que não deve ser enviado ao Git. O repositório contém apenas o exemplo `terraform.tfvars.example`, sem os valores reais.
+A gente tomou cuidado pra não deixar nenhuma senha, token ou chave no repositório.
 
-A senha de acesso ao banco fica no arquivo `.env`, e o código lê essa informação quando precisa se conectar. O `.gitignore` lista esses arquivos, os estados do Terraform e os dados brutos para que não sejam adicionados ao Git por engano.
+O token da Aiven fica no `terraform.tfvars`, que não vai pro Git (no repo só tem o
+`terraform.tfvars.example`, com o campo em branco pra pessoa preencher). A senha do banco
+fica num arquivo `.env`, que também não vai pro Git, e o código lê de lá na hora de rodar.
+O `variables.tf` só declara as variáveis como sensíveis, sem botar valor nenhum.
 
-Para reduzir a exposição de dados pessoais, CPF, nome, e-mail e título de eleitor são removidos durante o ETL e não chegam à tabela final. Como a análise é feita por grupos, não precisamos manter esses dados pessoais.
+Tudo isso está bloqueado no `.gitignore`: o `.env`, o `terraform.tfvars`, os arquivos de
+estado do Terraform (que guardam a senha) e a pasta de dados brutos.
 
-## Como executar o projeto
+Sobre a LGPD, como já falamos no tratamento, os dados pessoais (CPF, nome, email, título)
+são jogados fora no ETL e nunca chegam no banco, já que a análise é por grupo e não por
+pessoa.
 
-Para executar o projeto, é necessário ter Python 3, Terraform e uma conta na Aiven com um token de acesso.
+## Como rodar
 
-Primeiro, instale as bibliotecas usadas pelo projeto:
+Precisa de Python 3 e do Terraform instalados, e de uma conta na Aiven com token.
 
-```bash
+Instalar as bibliotecas:
+
+```
 pip install pandas sqlalchemy "psycopg[binary]" python-dotenv
 ```
 
-### 1. Criar o banco com Terraform
+Os passos, mais ou menos nessa ordem:
 
-Entre na pasta `terraform`, copie o arquivo de exemplo e preencha as informações solicitadas:
+1. Criar o banco com o Terraform:
 
-```bash
+```
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-```
-
-Depois, execute os comandos:
-
-```bash
+# preencher o token e o nome do projeto da Aiven no terraform.tfvars
 terraform init
 terraform apply
 ```
 
-### 2. Baixar os dados do TSE
+2. Baixar os dados de 2022 do site do TSE (candidatos, receitas e despesas contratadas)
+e extrair numa pasta `dados/`. Esses arquivos não ficam no repositório porque são muito
+grandes.
 
-Baixe os arquivos de candidatos, receitas e despesas contratadas referentes a 2022 no site de dados abertos do TSE. Extraia os arquivos na pasta `dados/`. Eles não ficam no repositório porque ocupam bastante espaço.
+3. Rodar o ETL:
 
-### 3. Executar o ETL
-
-Na pasta principal do projeto, rode o comando abaixo para tratar e agregar os dados:
-
-```bash
+```
 python etl.py --candidatos dados/consulta_cand_2022/consulta_cand_2022_BRASIL.csv --receitas dados/prestacao_de_contas_eleitorais_candidatos_2022/receitas_candidatos_2022_BRASIL.csv --despesas dados/prestacao_de_contas_eleitorais_candidatos_2022/despesas_contratadas_candidatos_2022_BRASIL.csv --saida saida_agregado.csv
 ```
 
-### 4. Carregar os dados no banco
+4. Carregar no banco (antes disso, criar o `.env` com a DATABASE_URL, que sai do comando
+`terraform output -raw pg_service_uri`):
 
-Crie o arquivo `.env` com a variável `DATABASE_URL`. A URL de conexão pode ser obtida com o comando `terraform output -raw pg_service_uri`. Salve esse arquivo na raiz do projeto. Em seguida, execute:
-
-```bash
+```
 python load.py
 ```
 
-### 5. Conferir a carga
+5. Pra conferir se carregou certo tem o `testa_banco.py`:
 
-Para verificar se os dados foram carregados corretamente, execute:
-
-```bash
+```
 python testa_banco.py
 ```
 
 ## Arquivos do projeto
 
-- `etl.py`: faz o tratamento e a agregação dos dados;
-- `load.py`: carrega os dados no banco;
-- `conferir.py`: foi usado para verificar as colunas no início do projeto;
-- `testa_banco.py`: testa a leitura dos dados no banco;
-- `saida_agregado.csv`: contém a base tratada e agregada;
-- `terraform/`: contém os arquivos usados para criar a infraestrutura;
-- `.gitignore`: define quais arquivos não devem ser enviados ao repositório.
+- `etl.py` - tratamento e agregação
+- `load.py` - carga no banco
+- `conferir.py` - script que a gente usou pra olhar as colunas no começo
+- `testa_banco.py` - teste de leitura do banco
+- `saida_agregado.csv` - a base já tratada
+- `terraform/` - os arquivos de infraestrutura
+- `.gitignore`
