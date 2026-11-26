@@ -1,18 +1,21 @@
 import argparse
+import os
 import pandas as pd
 
 SEP = ";"
-ENCODING = "latin-1"  
+ENCODING = "latin-1"
 CHUNKSIZE = 200000
 ANO = 2022
 
 COLS_CAND = [
     "SQ_CANDIDATO", "ANO_ELEICAO", "SG_UF", "DS_CARGO",
     "DS_GENERO", "DS_COR_RACA", "SG_PARTIDO",
-    "DT_NASCIMENTO", "DS_SIT_TOT_TURNO",
+    "DT_NASCIMENTO", "DS_SIT_TOT_TURNO", "NR_TURNO",
 ]
 
-DIMS = ["ANO_ELEICAO", "SG_UF", "DS_CARGO", "DS_GENERO", "DS_COR_RACA"]
+DIMS = ["ANO_ELEICAO", "SG_UF", "DS_CARGO", "DS_GENERO", "DS_COR_RACA", "FAIXA_ETARIA"]
+
+RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 COL_DESPESA = "VR_DESPESA_CONTRATADA"
 COL_RECEITA = "VR_RECEITA"
@@ -39,7 +42,6 @@ def eh_eleito(sit):
 
 
 def dinheiro(serie):
-    # tira o ponto do milhar
     limpo = serie.astype("string").str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
     return pd.to_numeric(limpo, errors="coerce")
 
@@ -51,7 +53,6 @@ def ler_candidatos(caminho):
     i = 0
     for chunk in leitor:
         i += 1
-        # aqui pega o ano de 2022
         chunk = chunk[chunk["ANO_ELEICAO"].astype(str).str.strip() == str(ANO)]
         if len(chunk) == 0:
             continue
@@ -61,12 +62,15 @@ def ler_candidatos(caminho):
         chunk["ANO_ELEICAO"] = pd.to_numeric(chunk["ANO_ELEICAO"], errors="coerce").astype("Int16")
         chunk["FAIXA_ETARIA"] = faixa_etaria(chunk["DT_NASCIMENTO"])
         chunk["ELEITO"] = eh_eleito(chunk["DS_SIT_TOT_TURNO"])
+        chunk["NR_TURNO"] = pd.to_numeric(chunk["NR_TURNO"], errors="coerce")
         chunk = chunk.drop(columns=["DT_NASCIMENTO", "DS_SIT_TOT_TURNO"])
         pedacos.append(chunk)
         print(f"  chunk {i}: {len(chunk)} linhas")
 
     df = pd.concat(pedacos, ignore_index=True)
-    df = df.dropna(subset=["SQ_CANDIDATO"]).drop_duplicates(subset=["SQ_CANDIDATO"])
+    df = df.dropna(subset=["SQ_CANDIDATO"])
+    df = df.sort_values("NR_TURNO").drop_duplicates(subset=["SQ_CANDIDATO"], keep="last")
+    df = df.drop(columns=["NR_TURNO"])
     print(f"  total: {len(df)} candidatos")
     return df
 
@@ -122,7 +126,7 @@ def main():
     ap.add_argument("--receitas", default=None)
     ap.add_argument("--despesas", default=None)
     ap.add_argument("--col-receita", default=COL_RECEITA)
-    ap.add_argument("--saida", default="saida_agregado.csv")
+    ap.add_argument("--saida", default=os.path.join(RAIZ, "saida_agregado.csv"))
     args = ap.parse_args()
 
     print("lendo candidatos...")
