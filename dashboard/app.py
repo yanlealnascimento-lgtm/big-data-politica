@@ -44,6 +44,7 @@ def carrega():
 df = carrega()
 
 st.title("Representatividade Política e Financiamento Eleitoral")
+st.markdown("#### Mulheres e pessoas negras recebem menos dinheiro de campanha e se elegem menos?")
 st.caption("Eleições Gerais de 2022 · Fonte: TSE · Gênero × Cor/Raça")
 
 st.sidebar.header("Filtros")
@@ -61,7 +62,9 @@ gen_fora = [g for g in df.ds_genero.unique() if str(g).upper() in ("NÃO DIVULG�
 
 f_ano = filtro("Ano", "ano_eleicao")
 f_uf = filtro("Estado (UF)", "sg_uf")
-f_cargo = filtro("Cargo", "ds_cargo", excluir=suplentes)
+cargos = sorted(df.ds_cargo.dropna().unique().tolist())
+padrao_cargo = ["DEPUTADO FEDERAL"] if "DEPUTADO FEDERAL" in cargos else [c for c in cargos if c not in suplentes]
+f_cargo = st.sidebar.multiselect("Cargo", cargos, default=padrao_cargo)
 f_gen = filtro("Gênero", "ds_genero", excluir=gen_fora)
 f_raca = filtro("Cor/Raça", "ds_cor_raca", excluir=raca_fora)
 
@@ -74,7 +77,7 @@ if tem_faixa:
     f_faixa = st.sidebar.multiselect("Faixa etária", faixas,
                                      default=[f for f in faixas if f != "NAO INFORMADO"],
                                      format_func=lambda f: NOME_FAIXA.get(f, f))
-st.sidebar.caption("Suplentes e categorias sem info vêm desmarcados, mas dá pra reativar.")
+st.sidebar.caption("O painel abre em Deputado Federal, o cargo com mais candidaturas. Os outros cargos, suplentes e categorias sem info podem ser marcados nos filtros.")
 
 mascara = (df.ano_eleicao.isin(f_ano) & df.sg_uf.isin(f_uf) & df.ds_cargo.isin(f_cargo) &
            df.ds_genero.isin(f_gen) & df.ds_cor_raca.isin(f_raca))
@@ -96,6 +99,35 @@ c1.metric("Candidaturas", f"{cand:,}".replace(",", "."))
 c2.metric("Eleitos", f"{eleitos:,}".replace(",", "."))
 c3.metric("Taxa de eleição", f"{taxa:.1f}%")
 c4.metric("Receita média / candidatura", f"R$ {rec_media:,.0f}".replace(",", "."))
+
+base = df[df.ano_eleicao.isin(f_ano) & df.sg_uf.isin(f_uf) & df.ds_cargo.isin(f_cargo)]
+if tem_faixa:
+    base = base[base.faixa_etaria.isin(f_faixa)]
+
+def resumo(g):
+    c = g.qt_candidaturas.sum()
+    if c == 0:
+        return None
+    return g.receita_soma.sum() / c, 100 * g.qt_eleitos.sum() / c
+
+hb = resumo(base[(base.ds_genero == "MASCULINO") & (base.ds_cor_raca == "BRANCA")])
+mn = resumo(base[(base.ds_genero == "FEMININO") & base.ds_cor_raca.isin(["PRETA", "PARDA"])])
+
+def reais(v):
+    return f"R$ {v:,.0f}".replace(",", ".")
+
+st.subheader("Homens brancos x mulheres negras")
+if hb and mn:
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Receita média: homens brancos", reais(hb[0]))
+    k2.metric("Receita média: mulheres negras", reais(mn[0]),
+              f"{mn[0] / hb[0]:.1f}x a dos homens brancos" if hb[0] else None, delta_color="off")
+    k3.metric("Eleitos: homens brancos", f"{hb[1]:.1f}%")
+    k4.metric("Eleitas: mulheres negras", f"{mn[1]:.1f}%",
+              f"{mn[1] / hb[1]:.1f}x a dos homens brancos" if hb[1] else None, delta_color="off")
+    st.caption("Mulheres negras = pretas e pardas. Este bloco segue os filtros de ano, estado, cargo e faixa etária.")
+else:
+    st.info("Não há candidaturas dos dois grupos com esses filtros.")
 
 st.divider()
 
